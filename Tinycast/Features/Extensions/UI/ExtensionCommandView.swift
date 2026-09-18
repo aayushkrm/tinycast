@@ -130,9 +130,14 @@ struct ExtensionFeedbackOverlay: View {
 
         var body: some View {
             HStack(spacing: metrics.spacing.sm) {
-                Image(systemName: icon.name)
-                    .foregroundStyle(icon.tint)
-                    .symbolEffect(.rotate, isActive: toast.style == .animated)
+                if #available(macOS 15.0, *) {
+                    Image(systemName: icon.name)
+                        .foregroundStyle(icon.tint)
+                        .symbolEffect(.rotate, isActive: toast.style == .animated)
+                } else {
+                    Image(systemName: icon.name)
+                        .foregroundStyle(icon.tint)
+                }
                 VStack(alignment: .leading, spacing: 0) {
                     Text(toast.title).font(metrics.typography.bar).lineLimit(1)
                     if let message = toast.message, !message.isEmpty {

@@ -45,9 +45,14 @@ struct MessageHUDView: View {
                 .foregroundStyle(tone.tint)
         case .progress:
             // A `ProgressView` spinner is drawn by AppKit and ignores every tint it is given.
-            Image(systemName: "progress.indicator")
-                .foregroundStyle(Theme.Colors.progress)
-                .symbolEffect(.variableColor.iterative.dimInactiveLayers.nonReversing)
+            if #available(macOS 15.0, *) {
+                Image(systemName: "progress.indicator")
+                    .foregroundStyle(Theme.Colors.progress)
+                    .symbolEffect(.variableColor.iterative.dimInactiveLayers.nonReversing)
+            } else {
+                Image(systemName: "progress.indicator")
+                    .foregroundStyle(Theme.Colors.progress)
+            }
         }
     }
 }
