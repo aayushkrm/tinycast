@@ -1,0 +1,40 @@
+name: Sonoma Check
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [sonoma-compat]
+
+jobs:
+  typecheck:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: sonoma-compat
+
+      - name: Select Xcode 26
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n1)"
+          if [ -z "$XCODE_PATH" ]; then
+            echo "::error::No Xcode 26.x found"
+            ls /Applications | grep -i xcode || true
+            exit 1
+          fi
+          echo "Using $XCODE_PATH"
+          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
+          xcrun --show-sdk-path --sdk macosx
+
+      - name: Typecheck for macOS 14.0
+        run: |
+          SDK="$(xcrun --show-sdk-path --sdk macosx)"
+          echo "SDK=$SDK"
+          SRCS=$(find Tinycast -name '*.swift')
+          echo "Files: $(echo "$SRCS" | wc -l)"
+          # Run typecheck targeting 14.0, capture all errors (availability errors surface one per run, so loop up to 30 times collecting)
+          xcrun swiftc -typecheck -swift-version 6 -strict-concurrency=complete \
+            -target x86_64-apple-macos14.0 -sdk "$SDK" $SRCS 2>&1 | tee /tmp/sonoma-check.log || true
+          echo "=== ERROR SUMMARY ==="
+          grep -E "error:" /tmp/sonoma-check.log | sed 's|.*/Tinycast/|Tinycast/|' | sort -u | head -n 100 || echo "NO ERRORS - clean"
+          echo "=== Total error lines ==="
+          grep -c -E "error:" /tmp/sonoma-check.log || echo 0
