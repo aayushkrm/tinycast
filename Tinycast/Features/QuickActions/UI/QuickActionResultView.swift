@@ -16,7 +16,7 @@ struct QuickActionResultView: View {
     @State private var contentHeight: CGFloat = 0
     @State private var headerHeight: CGFloat = 0
     @State private var footerHeight: CGFloat = 0
-    @State private var download: TranslationSession.Configuration?
+    @State private var downloadStorage: Any?
 
     /// Explicit overlays, not `safeAreaBar`: that lays its bars over the content instead of inset.
     var body: some View {
@@ -27,15 +27,13 @@ struct QuickActionResultView: View {
                 // A `ScrollView` has no ideal height, so the frame below is set, not merely capped.
                 .fixedSize(horizontal: false, vertical: true)
                 // Measured before the insets, so `isScrollable` cannot depend on its own answer.
-                .onGeometryChange(for: CGFloat.self) {
-                    $0.size.height
-                } action: {
+                .sonomaOnHeight {
                     contentHeight = $0
                 }
                 .padding(.top, inset(headerHeight))
                 .padding(.bottom, inset(footerHeight))
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .sonomaScrollBounceBasedOnSize()
         .mask(scrollFade)
         .overlay(alignment: .top) { measured(header) { headerHeight = $0 } }
         .overlay(alignment: .bottom) { measured(footer) { footerHeight = $0 } }
@@ -46,17 +44,11 @@ struct QuickActionResultView: View {
         .panelEntrance()
         // Reported, not measured: the frame above is ours, so reading it back would feed itself.
         .onChange(of: panelHeight, initial: true) { onHeight(panelHeight) }
-        .translationTask(download) { session in
-            try? await session.prepareTranslation()
-            await MainActor.run {
-                download = nil
-                onDownloaded()
-            }
-        }
+        .sonomaTranslationTask($downloadStorage, onDownloaded: onDownloaded)
     }
 
     private func measured(_ bar: some View, action: @escaping (CGFloat) -> Void) -> some View {
-        bar.onGeometryChange(for: CGFloat.self, of: { $0.size.height }, action: action)
+        bar.sonomaOnHeight(action)
     }
 
     /// Clears the bar and its ramp, so the first line is opaque until it scrolls into the gradient.
@@ -178,9 +170,15 @@ struct QuickActionResultView: View {
             Text("\(TextTranslator.displayName(of: state.targetLanguage)) hasn't been downloaded yet.")
                 .font(metrics.typography.rowTitle)
                 .foregroundStyle(Theme.Colors.textSecondary)
-            Button("Download") {
-                download = TranslationSession.Configuration(
-                    source: nil, target: state.targetLanguage)
+            if #available(macOS 15.0, *) {
+                Button("Download") {
+                    downloadStorage = TranslationSession.Configuration(
+                        source: nil, target: state.targetLanguage)
+                }
+            } else {
+                Text("Language downloads need macOS 15 or newer.")
+                    .font(metrics.typography.rowTrailing)
+                    .foregroundStyle(Theme.Colors.textTertiary)
             }
         }
     }
@@ -208,5 +206,28 @@ struct QuickActionResultView: View {
         .controlSize(.large)
         .padding(.horizontal, metrics.spacing.xxl)
         .padding(.vertical, metrics.spacing.xl)
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func sonomaTranslationTask(
+        _ storage: Binding<Any?>, onDownloaded: @escaping () -> Void
+    ) -> some View {
+        if #available(macOS 15.0, *) {
+            translationTask(
+                Binding<TranslationSession.Configuration?>(
+                    get: { storage.wrappedValue as? TranslationSession.Configuration },
+                    set: { storage.wrappedValue = $0 })
+            ) { session in
+                try? await session.prepareTranslation()
+                await MainActor.run {
+                    storage.wrappedValue = nil
+                    onDownloaded()
+                }
+            }
+        } else {
+            self
+        }
     }
 }

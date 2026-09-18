@@ -122,11 +122,7 @@ struct NoteSwitcherView: View {
 
 extension View {
     fileprivate func measuredHeight(_ report: @escaping (CGFloat) -> Void) -> some View {
-        onGeometryChange(for: CGFloat.self) {
-            $0.size.height
-        } action: {
-            report($0)
-        }
+        sonomaOnHeight(report)
     }
 }
 

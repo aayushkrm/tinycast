@@ -64,10 +64,9 @@ struct ExtensionPickerList: View {
                     height: form.popoverListHeight(
                         rows: items.count, headers: headerCount)
                 )
-                .scrollBounceBehavior(
-                    form.popoverListContentHeight(rows: items.count, headers: headerCount)
+                .sonomaScrollBounce(
+                    always: form.popoverListContentHeight(rows: items.count, headers: headerCount)
                         > form.popoverRowsMaxHeight
-                        ? .always : .basedOnSize
                 )
                 // `never`, not `hidden`: hidden still lets AppKit claim the scroller's gutter.
                 .scrollIndicators(.never)

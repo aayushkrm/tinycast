@@ -26,9 +26,7 @@ struct UpdateWindowView: View {
         .padding([.horizontal, .bottom], Theme.Spacing.xxl)
         // The ideal height, not the window's, so sizing to it converges instead of feeding back.
         .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.height
-        } action: {
+        .sonomaOnHeight {
             updates.fit(height: $0)
         }
         .frame(maxWidth: .infinity, alignment: .top)

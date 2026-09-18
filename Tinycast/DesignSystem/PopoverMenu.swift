@@ -153,7 +153,7 @@ struct PopoverMenu: View {
             .frame(height: viewportHeight)
             // `never`, not `hidden`: hidden still lets AppKit claim the scroller's gutter.
             .scrollIndicators(.never)
-            .scrollBounceBehavior(contentHeight > viewportCapacity ? .always : .basedOnSize)
+            .sonomaScrollBounce(always: contentHeight > viewportCapacity)
             .overflowFade(band: metrics.scaled(Theme.Size.menuOverflowFade), includingTop: true)
             .onChange(of: selection) {
                 let byPointer = pointerSelection == selection

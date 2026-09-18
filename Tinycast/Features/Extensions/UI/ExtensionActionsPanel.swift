@@ -100,9 +100,7 @@ struct ExtensionActionsPanel: View {
                 }
             }
             .frame(height: min(contentHeight, maximumHeight))
-            .scrollBounceBehavior(
-                contentHeight > maximumHeight ? .always : .basedOnSize
-            )
+            .sonomaScrollBounce(always: contentHeight > maximumHeight)
             // `never`, not `hidden`: hidden still lets AppKit claim the scroller's gutter.
             .scrollIndicators(.never)
             .overflowFade(band: panel.fadeBand, includingTop: true)

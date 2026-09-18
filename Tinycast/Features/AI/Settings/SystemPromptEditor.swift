@@ -59,7 +59,7 @@ struct SystemPromptEditor: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, Self.textInset)
             }
-            .scrollBounceBehavior(.basedOnSize)
+            .sonomaScrollBounceBasedOnSize()
             .blur(radius: isRevealed ? 0 : Theme.Blur.redaction)
         }
     }

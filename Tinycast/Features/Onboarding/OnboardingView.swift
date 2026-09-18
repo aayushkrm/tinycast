@@ -30,9 +30,7 @@ struct OnboardingView: View {
         .frame(maxWidth: .infinity)
         // The ideal height, not the window's, so sizing to it converges instead of feeding back.
         .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.height
-        } action: {
+        .sonomaOnHeight {
             core.onboardingCoordinator.fit(height: $0)
         }
         // Only the gradient reaches under the titlebar; the content stays in the safe area.

@@ -38,7 +38,7 @@ struct WindowLayoutInspector: View {
             .padding(Theme.Spacing.xxl)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .scrollBounceBehavior(.basedOnSize)
+        .sonomaScrollBounceBasedOnSize()
     }
 
     // MARK: - Layout-wide

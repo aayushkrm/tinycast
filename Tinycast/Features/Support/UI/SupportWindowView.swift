@@ -26,9 +26,7 @@ struct SupportWindowView: View {
         .padding([.horizontal, .bottom], Theme.Spacing.xxl)
         // The ideal height, not the window's: measuring its own output would feed back.
         .fixedSize(horizontal: false, vertical: true)
-        .onGeometryChange(for: CGFloat.self) {
-            $0.size.height
-        } action: {
+        .sonomaOnHeight {
             support.fit(height: $0)
         }
         .frame(maxWidth: .infinity, alignment: .top)

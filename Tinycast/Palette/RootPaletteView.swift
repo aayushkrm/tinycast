@@ -897,9 +897,7 @@ struct RootPaletteView: View {
                 }
             }
             // The panel resolves the pointer against this rather than hit-testing for the field.
-            .onGeometryChange(for: CGRect.self) {
-                $0.frame(in: .global)
-            } action: {
+            .sonomaOnGlobalFrame {
                 // A hidden field takes no caret, so it claims no I-beam region either.
                 vm.searchFieldFrame = hidesSearchField ? .zero : $0
             }
