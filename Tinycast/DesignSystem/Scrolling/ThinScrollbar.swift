@@ -38,39 +38,55 @@ struct ThinScrollbar: ViewModifier {
     private var visible: Bool { isScrolling || isHoveringTrack || isDragging }
     private var expanded: Bool { isHoveringTrack || isDragging }
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .scrollIndicators(.hidden)  // drop the native scroller (and its flash) entirely
-            // Geometry drives the thumb's size/position, never its visibility.
-            .onScrollGeometryChange(for: Metrics.self) { geo in
-                Metrics(
-                    offset: geo.contentOffset.y,
-                    insetTop: geo.contentInsets.top,
-                    content: geo.contentSize.height,
-                    viewport: geo.containerSize.height
-                )
-            } action: { _, new in
-                metrics = new
-            }
-            // Scrolling reveals the thumb (not the rail) and re-hides a beat after it stops; a thumb drag has no scroll phase, so its own handlers own visibility.
-            .onScrollPhaseChange { _, phase in
-                guard !isDragging else { return }
-                phase == .idle ? scheduleScrollStop() : beganScrolling()
-            }
-            .overlay(alignment: .topTrailing) { bar }
-            // One tracking view over the whole trailing strip owns all pointer handling: transparent except over the thumb, where it takes the drag and forwards wheel events, and never flickers the rail the way a content-level hover did.
-            .overlay {
-                ScrollbarInteraction(
-                    edgeWidth: hoverZone,
-                    inset: inset,
-                    thumbY: thumbOffset,
-                    thumbHeight: thumbHeight,
-                    thumbGrabbable: metrics.scrollable && visible,
-                    railActive: metrics.scrollable && expanded,
-                    onZoneChange: updateZone,
-                    onDragChange: dragChanged
-                )
-            }
+        if #available(macOS 15.0, *) {
+            content
+                .scrollIndicators(.hidden)
+                .onScrollGeometryChange(for: Metrics.self) { geo in
+                    Metrics(
+                        offset: geo.contentOffset.y,
+                        insetTop: geo.contentInsets.top,
+                        content: geo.contentSize.height,
+                        viewport: geo.containerSize.height
+                    )
+                } action: { _, new in
+                    metrics = new
+                }
+                .onScrollPhaseChange { _, phase in
+                    guard !isDragging else { return }
+                    phase == .idle ? scheduleScrollStop() : beganScrolling()
+                }
+                .overlay(alignment: .topTrailing) { bar }
+                .overlay {
+                    ScrollbarInteraction(
+                        edgeWidth: hoverZone,
+                        inset: inset,
+                        thumbY: thumbOffset,
+                        thumbHeight: thumbHeight,
+                        thumbGrabbable: metrics.scrollable && visible,
+                        railActive: metrics.scrollable && expanded,
+                        onZoneChange: updateZone,
+                        onDragChange: dragChanged
+                    )
+                }
+        } else {
+            content
+                .scrollIndicators(.hidden)
+                .overlay(alignment: .topTrailing) { bar }
+                .overlay {
+                    ScrollbarInteraction(
+                        edgeWidth: hoverZone,
+                        inset: inset,
+                        thumbY: thumbOffset,
+                        thumbHeight: thumbHeight,
+                        thumbGrabbable: metrics.scrollable && visible,
+                        railActive: metrics.scrollable && expanded,
+                        onZoneChange: updateZone,
+                        onDragChange: dragChanged
+                    )
+                }
+        }
     }
 
     @ViewBuilder private var bar: some View {

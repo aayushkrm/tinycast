@@ -47,30 +47,48 @@ private struct SelectionFollowing: ViewModifier {
         var height: CGFloat
     }
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .onScrollGeometryChange(for: Band.self) {
-                Band(insetTop: $0.contentInsets.top, height: $0.containerSize.height)
-            } action: { old, new in
-                band = new
-                // The inset settles after mount and moves the resting offset, so `top` is restated.
-                if scroll.kind == .top, old.insetTop != new.insetTop { proxy.scrollToOrigin() }
-                align()
-            }
-            .onPreferenceChange(SelectionFrameKey.self) { frame in
-                selection = frame
-                align()
-            }
-            .onChange(of: scroll) { _, scroll in
-                switch scroll.kind {
-                case .top:
-                    following = false
-                    proxy.scrollToOrigin()
-                case .follow:
-                    following = true
+        if #available(macOS 15.0, *) {
+            content
+                .onScrollGeometryChange(for: Band.self) {
+                    Band(insetTop: $0.contentInsets.top, height: $0.containerSize.height)
+                } action: { old, new in
+                    band = new
+                    if scroll.kind == .top, old.insetTop != new.insetTop { proxy.scrollToOrigin() }
                     align()
                 }
-            }
+                .onPreferenceChange(SelectionFrameKey.self) { frame in
+                    selection = frame
+                    align()
+                }
+                .onChange(of: scroll) { _, scroll in
+                    switch scroll.kind {
+                    case .top:
+                        following = false
+                        proxy.scrollToOrigin()
+                    case .follow:
+                        following = true
+                        align()
+                    }
+                }
+        } else {
+            content
+                .onPreferenceChange(SelectionFrameKey.self) { frame in
+                    selection = frame
+                    align()
+                }
+                .onChange(of: scroll) { _, scroll in
+                    switch scroll.kind {
+                    case .top:
+                        following = false
+                        proxy.scrollToOrigin()
+                    case .follow:
+                        following = true
+                        align()
+                    }
+                }
+        }
     }
 
     private func align() {

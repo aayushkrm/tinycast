@@ -21,43 +21,26 @@ struct ChatTranscriptView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
+            scrollContent(proxy: proxy)
+        }
+    }
+
+    @ViewBuilder
+    private func scrollContent(proxy: ScrollViewProxy) -> some View {
+        if #available(macOS 15.0, *) {
             ScrollView {
-                // Not lazy: every anchored jump and the end test measure an estimated height
-                VStack(spacing: metrics.spacing.xl) {
-                    ForEach(messages) { message in
-                        ChatMessageView(
-                            message: message,
-                            status: message.id == messages.last?.id ? status : nil
-                        )
-                        .id(message.id)
-                    }
-                    if let total = usage?.totalTokens {
-                        Text("\(total.formatted()) tokens")
-                            .font(metrics.typography.rowTrailing)
-                            .foregroundStyle(Theme.Colors.textTertiary)
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                    }
-                    Color.clear
-                        .frame(height: metrics.spacing.xxs)
-                        .id("ai-transcript-tail")
-                }
-                .padding(.horizontal, metrics.spacing.xxl)
-                .padding(.top, metrics.spacing.xl)
-                .padding(.bottom, metrics.spacing.chatTranscriptBottom)
+                transcriptBody
             }
             .edgeDissolve()
             .thinScrollbar()
-            // Reopened chats start at the latest message; other anchor roles fight the reader.
             .defaultScrollAnchor(.bottom, for: .initialOffset)
             .onScrollGeometryChange(for: ScrollMark.self) { geometry in
                 ScrollMark(
                     offset: geometry.contentOffset.y,
-                    // The offset rests at `-insetTop`, so the end is that far past offset plus band
                     atEnd: geometry.contentOffset.y + geometry.containerSize.height
                         + geometry.contentInsets.top
                         >= geometry.contentSize.height - metrics.spacing.chatFollowTailSlack)
             } action: { old, new in
-                // The offset is the only signal every device gives; the end wins, tested first
                 if new.atEnd {
                     followsTail = true
                 } else if new.offset < old.offset - Self.deliberateScroll {
@@ -68,16 +51,56 @@ struct ChatTranscriptView: View {
             .onChange(of: messages) { follow(proxy, always: false) }
             .onChange(of: usage) { follow(proxy, always: false) }
             .overlay(alignment: .bottom) {
-                ResumeFollowingButton {
-                    followsTail = true
-                    follow(proxy, always: true)
-                }
-                .padding(.bottom, metrics.spacing.lg)
-                .opacity(followsTail ? 0 : 1)
-                .allowsHitTesting(!followsTail)
-                .animation(.easeOut(duration: Theme.Duration.chatFooter), value: followsTail)
+                tailButton(proxy: proxy)
+            }
+        } else {
+            ScrollView {
+                transcriptBody
+            }
+            .edgeDissolve()
+            .thinScrollbar()
+            .onChange(of: messages.count) { follow(proxy, always: true) }
+            .onChange(of: messages) { follow(proxy, always: false) }
+            .onChange(of: usage) { follow(proxy, always: false) }
+            .overlay(alignment: .bottom) {
+                tailButton(proxy: proxy)
             }
         }
+    }
+
+    private var transcriptBody: some View {
+        VStack(spacing: metrics.spacing.xl) {
+            ForEach(messages) { message in
+                ChatMessageView(
+                    message: message,
+                    status: message.id == messages.last?.id ? status : nil
+                )
+                .id(message.id)
+            }
+            if let total = usage?.totalTokens {
+                Text("\(total.formatted()) tokens")
+                    .font(metrics.typography.rowTrailing)
+                    .foregroundStyle(Theme.Colors.textTertiary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            Color.clear
+                .frame(height: metrics.spacing.xxs)
+                .id("ai-transcript-tail")
+        }
+        .padding(.horizontal, metrics.spacing.xxl)
+        .padding(.top, metrics.spacing.xl)
+        .padding(.bottom, metrics.spacing.chatTranscriptBottom)
+    }
+
+    private func tailButton(proxy: ScrollViewProxy) -> some View {
+        ResumeFollowingButton {
+            followsTail = true
+            follow(proxy, always: true)
+        }
+        .padding(.bottom, metrics.spacing.lg)
+        .opacity(followsTail ? 0 : 1)
+        .allowsHitTesting(!followsTail)
+        .animation(.easeOut(duration: Theme.Duration.chatFooter), value: followsTail)
     }
 
     /// A sent message always comes into view; a growing reply only while the reader is at the end.

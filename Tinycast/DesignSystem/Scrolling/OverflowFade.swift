@@ -14,24 +14,37 @@ struct OverflowFadeMask: ViewModifier {
         var bottom: CGFloat = 0
     }
 
+    @ViewBuilder
     func body(content: Content) -> some View {
-        content
-            .onScrollGeometryChange(for: Overflow.self) { geo in
-                Overflow(
-                    top: geo.contentOffset.y + geo.contentInsets.top,
-                    bottom: geo.contentSize.height + geo.contentInsets.bottom
-                        - geo.containerSize.height - geo.contentOffset.y)
-            } action: { _, new in
-                overflow = Overflow(top: max(0, new.top), bottom: max(0, new.bottom))
-            }
-            .mask(
-                GeometryReader { geo in
-                    LinearGradient(
-                        stops: stops(height: geo.size.height),
-                        startPoint: .top, endPoint: .bottom
-                    )
+        if #available(macOS 15.0, *) {
+            content
+                .onScrollGeometryChange(for: Overflow.self) { geo in
+                    Overflow(
+                        top: geo.contentOffset.y + geo.contentInsets.top,
+                        bottom: geo.contentSize.height + geo.contentInsets.bottom
+                            - geo.containerSize.height - geo.contentOffset.y)
+                } action: { _, new in
+                    overflow = Overflow(top: max(0, new.top), bottom: max(0, new.bottom))
                 }
-            )
+                .mask(
+                    GeometryReader { geo in
+                        LinearGradient(
+                            stops: stops(height: geo.size.height),
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    }
+                )
+        } else {
+            content
+                .mask(
+                    GeometryReader { geo in
+                        LinearGradient(
+                            stops: stops(height: geo.size.height),
+                            startPoint: .top, endPoint: .bottom
+                        )
+                    }
+                )
+        }
     }
 
     private func stops(height: CGFloat) -> [Gradient.Stop] {
