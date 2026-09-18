@@ -213,11 +213,12 @@ private struct SnippetEditorSheet: View {
     @State private var name: String
     @State private var keyword: String
     @State private var text: String
-    @State private var selection: TextSelection?
     @State private var isEnabled: Bool
     @State private var showsConfirmation: Bool
     @State private var errorMessage: String?
     @State private var isSaving = false
+    @available(macOS 15.0, *)
+    @State private var selection: TextSelection?
 
     init(record: StoredSnippet?) {
         self.record = record
@@ -273,6 +274,7 @@ private struct SnippetEditorSheet: View {
         .frame(width: Theme.Size.editorSheetWidth)
     }
 
+    @ViewBuilder
     private var templateEditor: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
             HStack {
@@ -281,22 +283,41 @@ private struct SnippetEditorSheet: View {
                 Spacer()
                 placeholderMenu
             }
-            TextEditor(text: $text, selection: $selection)
-                .font(.body.monospaced())
-                .scrollContentBackground(.hidden)
-                .padding(Theme.Spacing.sm)
-                .frame(height: Theme.Size.editorTextHeight)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                        .fill(Theme.Colors.cardFill)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
-                        .strokeBorder(Theme.Colors.cardStroke, lineWidth: 1)
-                )
-                .focused($isTemplateFocused)
-                .accessibilityLabel("Snippet template")
-                .accessibilityHint("Enter the text Tinycast expands.")
+            if #available(macOS 15.0, *) {
+                TextEditor(text: $text, selection: $selection)
+                    .font(.body.monospaced())
+                    .scrollContentBackground(.hidden)
+                    .padding(Theme.Spacing.sm)
+                    .frame(height: Theme.Size.editorTextHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                            .fill(Theme.Colors.cardFill)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                            .strokeBorder(Theme.Colors.cardStroke, lineWidth: 1)
+                    )
+                    .focused($isTemplateFocused)
+                    .accessibilityLabel("Snippet template")
+                    .accessibilityHint("Enter the text Tinycast expands.")
+            } else {
+                TextEditor(text: $text)
+                    .font(.body.monospaced())
+                    .scrollContentBackground(.hidden)
+                    .padding(Theme.Spacing.sm)
+                    .frame(height: Theme.Size.editorTextHeight)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                            .fill(Theme.Colors.cardFill)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.row, style: .continuous)
+                            .strokeBorder(Theme.Colors.cardStroke, lineWidth: 1)
+                    )
+                    .focused($isTemplateFocused)
+                    .accessibilityLabel("Snippet template")
+                    .accessibilityHint("Enter the text Tinycast expands.")
+            }
         }
     }
 
@@ -333,15 +354,17 @@ private struct SnippetEditorSheet: View {
 
     /// Replaces the selection or lands at the caret; appends when there is no usable one.
     private func insert(_ token: String) {
-        if let selection, case .selection(let range) = selection.indices,
-            range.lowerBound >= text.startIndex, range.upperBound <= text.endIndex
-        {
-            text.replaceSubrange(range, with: token)
-        } else {
-            text += token
+        if #available(macOS 15.0, *) {
+            if let selection, case .selection(let range) = selection.indices,
+                range.lowerBound >= text.startIndex, range.upperBound <= text.endIndex
+            {
+                text.replaceSubrange(range, with: token)
+                self.selection = nil
+                isTemplateFocused = true
+                return
+            }
         }
-        // Those indices belong to the replaced string, so they must not survive the next insert.
-        selection = nil
+        text += token
         isTemplateFocused = true
     }
 
