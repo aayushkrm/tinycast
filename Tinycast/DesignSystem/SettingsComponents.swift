@@ -103,7 +103,7 @@ struct SettingsFilterField: View {
                 .textFieldStyle(.plain)
                 .labelsHidden()
                 .focused($focused)
-                .pointerStyle(.horizontalText)
+                .sonomaPointerStyle()
             if !query.isEmpty {
                 Button {
                     query = ""
@@ -192,5 +192,15 @@ struct AliasField: View {
 extension AliasField {
     init(entry: AppEntry) {
         self.init(key: entry.preferenceKey, name: entry.name)
+    }
+}
+
+extension View {
+    func sonomaPointerStyle() -> some View {
+        if #available(macOS 15.0, *) {
+            return AnyView(pointerStyle(.horizontalText))
+        } else {
+            return AnyView(self)
+        }
     }
 }

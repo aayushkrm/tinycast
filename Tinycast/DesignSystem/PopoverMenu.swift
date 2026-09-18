@@ -108,7 +108,7 @@ struct PopoverMenu: View {
         rows
             .padding(metrics.spacing.sm)
             .frame(width: width ?? metrics.size.menuWidth)
-            .glassEffect(.regular, in: shape)
+            .frostedMenu(in: shape)
     }
 
     private func headerLabel(_ text: String) -> some View {

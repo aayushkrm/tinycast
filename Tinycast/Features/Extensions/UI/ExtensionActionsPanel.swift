@@ -116,7 +116,7 @@ struct ExtensionActionsPanel: View {
         }
         .padding(metrics.spacing.sm)
         .frame(width: panel.width)
-        .glassEffect(.regular, in: shape)
+        .frostedMenu(in: shape)
     }
 
     @ViewBuilder

@@ -391,10 +391,42 @@ enum Theme {
     }
 }
 
+private struct FrostedSurface<S: Shape>: ViewModifier {
+    let shape: S
+    let isInteractive: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(macOS 26.0, *) {
+            if isInteractive {
+                content
+                    .glassEffect(.regular.interactive().tint(Theme.Colors.glassFrost), in: shape)
+                    .tint(.clear)
+            } else {
+                content.glassEffect(.regular, in: shape)
+            }
+        } else {
+            fallback(content)
+        }
+    }
+
+    private func fallback(_ content: Content) -> some View {
+        content.background {
+            shape
+                .fill(.ultraThinMaterial)
+                .overlay { shape.fill(Theme.Colors.glassFrost) }
+                .overlay { shape.stroke(Theme.Colors.border.opacity(0.6), lineWidth: 0.5) }
+                .shadow(color: .black.opacity(0.22), radius: 6, y: 2)
+        }
+    }
+}
+
 extension View {
-    /// A floating glass control surface, frosted so it reads brighter than clear glass.
     func frosted(in shape: some Shape) -> some View {
-        glassEffect(.regular.interactive().tint(Theme.Colors.glassFrost), in: shape)
-            .tint(.clear)
+        modifier(FrostedSurface(shape: shape, isInteractive: true))
+    }
+
+    func frostedMenu(in shape: some Shape) -> some View {
+        modifier(FrostedSurface(shape: shape, isInteractive: false))
     }
 }

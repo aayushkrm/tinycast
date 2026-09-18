@@ -25,8 +25,8 @@ struct ExtensionPickerList: View {
         }
         .padding(metrics.spacing.sm)
         .frame(width: width ?? form.controlWidth)
-        .glassEffect(
-            .regular, in: RoundedRectangle(cornerRadius: metrics.radius.menuPanel, style: .continuous)
+        .frostedMenu(
+            in: RoundedRectangle(cornerRadius: metrics.radius.menuPanel, style: .continuous)
         )
     }
 
