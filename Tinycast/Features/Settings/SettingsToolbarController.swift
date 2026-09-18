@@ -42,8 +42,9 @@ final class SettingsToolbarController: NSObject, WindowChrome, NSToolbarDelegate
         // Labels would print "Back"/"Forward" under the chevrons and double the bar's height.
         toolbar.displayMode = .iconOnly
         toolbar.allowsUserCustomization = false
-        // Both, or a right-click still offers the display-mode items.
-        toolbar.allowsDisplayModeCustomization = false
+        if #available(macOS 15.0, *) {
+            toolbar.allowsDisplayModeCustomization = false
+        }
         window.toolbar = toolbar
 
         observe()
