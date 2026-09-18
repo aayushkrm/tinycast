@@ -129,7 +129,7 @@ struct ExtensionPickerField: View {
             )
             .onChange(of: open) { palette.noteControlListOpen(open) }
             .onChange(of: query) { typedAt = Date() }
-            .onScrollVisibilityChange { if !$0 { close() } }
+            .sonomaOnScrollVisibilityChange { if !$0 { close() } }
             .onChange(of: palette.controlListDismissToken) { close() }
             .onDisappear { if open { palette.noteControlListOpen(false) } }
             .onChange(of: focus) { _, focus in
