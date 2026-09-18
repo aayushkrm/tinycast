@@ -88,11 +88,35 @@ enum AppLauncher {
     private static func quitAwaitingExit(_ apps: [NSRunningApplication]) async -> Bool {
         let center = NSWorkspace.shared.notificationCenter
         let (exits, continuation) = AsyncStream.makeStream(of: pid_t.self)
-        let observer = center.addObserver(
-            of: NSWorkspace.shared, for: NSWorkspace.DidTerminateApplicationMessage.self
-        ) { continuation.yield($0.application.processIdentifier) }
-        defer { center.removeObserver(observer) }
+        if #available(macOS 26.0, *) {
+            let observer = center.addObserver(
+                of: NSWorkspace.shared, for: NSWorkspace.DidTerminateApplicationMessage.self
+            ) { continuation.yield($0.application.processIdentifier) }
+            defer { center.removeObserver(observer) }
+            return await waitForExits(apps: apps, exits: exits, continuation: continuation)
+        } else {
+            let observer = center.addObserver(
+                forName: NSWorkspace.didTerminateApplicationNotification,
+                object: NSWorkspace.shared,
+                queue: .main
+            ) { note in
+                if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey]
+                    as? NSRunningApplication
+                {
+                    continuation.yield(app.processIdentifier)
+                }
+            }
+            defer { center.removeObserver(observer) }
+            return await waitForExits(apps: apps, exits: exits, continuation: continuation)
+        }
+    }
 
+    @MainActor
+    private static func waitForExits(
+        apps: [NSRunningApplication],
+        exits: AsyncStream<pid_t>,
+        continuation: AsyncStream<pid_t>.Continuation
+    ) async -> Bool {
         var pending = Set(apps.map(\.processIdentifier))
         for app in apps { app.terminate() }
 
