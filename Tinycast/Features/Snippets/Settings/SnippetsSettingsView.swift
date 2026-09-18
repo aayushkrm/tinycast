@@ -217,8 +217,7 @@ private struct SnippetEditorSheet: View {
     @State private var showsConfirmation: Bool
     @State private var errorMessage: String?
     @State private var isSaving = false
-    @available(macOS 15.0, *)
-    @State private var selection: TextSelection?
+    @State private var selectionStorage: Any?
 
     init(record: StoredSnippet?) {
         self.record = record
@@ -284,7 +283,11 @@ private struct SnippetEditorSheet: View {
                 placeholderMenu
             }
             if #available(macOS 15.0, *) {
-                TextEditor(text: $text, selection: $selection)
+                TextEditor(
+                    text: $text,
+                    selection: Binding<TextSelection?>(
+                        get: { selectionStorage as? TextSelection },
+                        set: { selectionStorage = $0 }))
                     .font(.body.monospaced())
                     .scrollContentBackground(.hidden)
                     .padding(Theme.Spacing.sm)
@@ -355,11 +358,12 @@ private struct SnippetEditorSheet: View {
     /// Replaces the selection or lands at the caret; appends when there is no usable one.
     private func insert(_ token: String) {
         if #available(macOS 15.0, *) {
-            if let selection, case .selection(let range) = selection.indices,
+            if let selection = selectionStorage as? TextSelection,
+                case .selection(let range) = selection.indices,
                 range.lowerBound >= text.startIndex, range.upperBound <= text.endIndex
             {
                 text.replaceSubrange(range, with: token)
-                self.selection = nil
+                selectionStorage = nil
                 isTemplateFocused = true
                 return
             }
