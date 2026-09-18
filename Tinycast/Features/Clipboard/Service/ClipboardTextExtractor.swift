@@ -63,13 +63,24 @@ nonisolated enum ClipboardTextExtractor {
 
     private static func recognizeTile(_ image: CGImage) async throws -> String {
         try Task.checkCancellation()
-        var request = RecognizeTextRequest()
-        request.recognitionLevel = .accurate
-        request.minimumTextHeightFraction = 0
-        request.automaticallyDetectsLanguage = true
-        let observations = try await request.perform(on: image)
-        try Task.checkCancellation()
-        return observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+        if #available(macOS 15.0, *) {
+            var request = RecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.minimumTextHeightFraction = 0
+            request.automaticallyDetectsLanguage = true
+            let observations = try await request.perform(on: image)
+            try Task.checkCancellation()
+            return observations.compactMap { $0.topCandidates(1).first?.string }.joined(separator: "\n")
+        } else {
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = true
+            let handler = VNImageRequestHandler(cgImage: image, options: [:])
+            try handler.perform([request])
+            try Task.checkCancellation()
+            return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+                .joined(separator: "\n")
+        }
     }
 
     private static func extractPDF(_ url: URL) async throws -> String {
