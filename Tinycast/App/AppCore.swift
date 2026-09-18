@@ -455,7 +455,7 @@ final class AppCore {
         return try AIProviderFactory.make(
             selection: selection, settings: aiSettings, subscription: chatGPTSubscription,
             installedAI: installedAI,
-            guardrails: .permissiveContentTransformations)
+            guardrails: .permissive)
     }
 
     // MARK: - Feature switches

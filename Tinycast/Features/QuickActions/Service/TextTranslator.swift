@@ -36,6 +36,7 @@ enum TextTranslator {
 
     /// Installed pairs only: fetching one needs SwiftUI's `translationTask`, which the panel owns.
     static func translate(_ text: String, to target: Locale.Language) async throws -> String {
+        guard #available(macOS 26.0, *) else { throw Failure.unsupported }
         guard let source = sourceLanguage(of: text) else { throw Failure.undetectableSource }
         guard !source.isEquivalent(to: target) else { return text }
         switch await LanguageAvailability().status(from: source, to: target) {
@@ -64,7 +65,8 @@ enum TextTranslator {
 
     /// The framework's own list, so the picker cannot offer a pair that only fails at press time.
     static func supportedLanguages() async -> [Locale.Language] {
-        await LanguageAvailability().supportedLanguages
+        guard #available(macOS 15.0, *) else { return [] }
+        return await LanguageAvailability().supportedLanguages
             .sorted { displayName(of: $0) < displayName(of: $1) }
     }
 }

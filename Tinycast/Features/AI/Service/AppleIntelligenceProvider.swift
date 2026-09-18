@@ -4,13 +4,14 @@ import Foundation
 /// The only provider with nothing to configure, so a first run may select it unasked.
 struct AppleIntelligenceProvider: AIProvider {
     /// The caller's, not a constant: the default filter refuses text the reader already wrote.
-    let guardrails: SystemLanguageModel.Guardrails
+    let guardrails: SonomaGuardrails
 
-    init(guardrails: SystemLanguageModel.Guardrails = .default) {
+    init(guardrails: SonomaGuardrails = .default) {
         self.guardrails = guardrails
     }
 
     static func status() -> AppleIntelligenceStatus {
+        guard #available(macOS 26.0, *) else { return .deviceNotEligible }
         switch SystemLanguageModel.default.availability {
         case .available: return .available
         case .unavailable(.deviceNotEligible): return .deviceNotEligible
@@ -28,12 +29,16 @@ struct AppleIntelligenceProvider: AIProvider {
                     if let message = Self.status().message {
                         throw AIProviderError.unavailable(message)
                     }
+                    guard #available(macOS 26.0, *) else {
+                        throw AIProviderError.unavailable(
+                            "This Mac does not support Apple Intelligence.")
+                    }
                     let turn = Self.turn(for: request)
                     guard let prompt = turn.prompt else {
                         throw AIProviderError.responseFailed("There was nothing to send.")
                     }
                     let session = LanguageModelSession(
-                        model: SystemLanguageModel(guardrails: guardrails),
+                        model: SystemLanguageModel(guardrails: mappedGuardrails()),
                         transcript: turn.transcript)
                     let options = GenerationOptions(
                         maximumResponseTokens: min(
@@ -48,17 +53,30 @@ struct AppleIntelligenceProvider: AIProvider {
                     continuation.finish()
                 } catch is CancellationError {
                     continuation.finish()
-                } catch let error as LanguageModelSession.GenerationError {
-                    continuation.finish(throwing: Self.providerError(error))
                 } catch {
-                    continuation.finish(throwing: error)
+                    if #available(macOS 26.0, *),
+                        let generationError = error as? LanguageModelSession.GenerationError
+                    {
+                        continuation.finish(throwing: Self.providerError(generationError))
+                    } else {
+                        continuation.finish(throwing: error)
+                    }
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
         }
     }
 
+    @available(macOS 26.0, *)
+    private func mappedGuardrails() -> SystemLanguageModel.Guardrails {
+        switch guardrails {
+        case .default: return .default
+        case .permissive: return .permissiveContentTransformations
+        }
+    }
+
     /// Split the way a session takes it: the newest user turn is the prompt, the rest a transcript.
+    @available(macOS 26.0, *)
     static func turn(for request: AIRequest) -> (prompt: String?, transcript: Transcript) {
         var entries: [Transcript.Entry] = []
         if let instructions = request.instructions, !instructions.isEmpty {
@@ -89,6 +107,7 @@ struct AppleIntelligenceProvider: AIProvider {
     }
 
     /// Plain sentences: the only detail these carry is a `debugDescription` written for a log.
+    @available(macOS 26.0, *)
     static func providerError(_ error: LanguageModelSession.GenerationError) -> AIProviderError {
         switch error {
         case .exceededContextWindowSize:

@@ -34,6 +34,12 @@ enum AppleIntelligence {
     static let maxOutputTokens = 1_024
 }
 
+/// Storage-level guardrail choice, free of the 26-only framework type so callers compile on 14.
+enum SonomaGuardrails: Sendable {
+    case `default`
+    case permissive
+}
+
 /// FoundationModels reports the whole answer so far; every other transport speaks in deltas.
 struct AppleIntelligenceDelta {
     private var emitted = ""
