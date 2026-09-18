@@ -14,7 +14,7 @@ struct SettingsSearchField: View {
                 .textFieldStyle(.plain)
                 .labelsHidden()
                 .focused($focused)
-                .pointerStyle(.horizontalText)
+                .sonomaPointerStyle()
             if !query.isEmpty {
                 Button {
                     query = ""
@@ -30,7 +30,7 @@ struct SettingsSearchField: View {
         .frame(height: Theme.Size.settingsSearchField)
         // Glass on a layer of its own: `frosted` ends in `.tint(.clear)`, which would erase the caret.
         .background { Color.clear.frosted(in: Capsule()) }
-        .contentShape(.rect)
+        .contentShape(Rectangle())
         .onTapGesture { focused = true }
         .accessibilityLabel("Search settings")
     }

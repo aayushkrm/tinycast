@@ -115,7 +115,7 @@ struct SettingsFilterField: View {
                 .accessibilityLabel("Clear search")
             }
         }
-        .contentShape(.rect)
+        .contentShape(Rectangle())
         .onTapGesture { focused = true }
     }
 }

@@ -68,7 +68,7 @@ struct ExtensionAppearancePicker: View {
                 TextField("", text: $query, prompt: Text("Search symbols…"))
                     .textFieldStyle(.plain)
                     .labelsHidden()
-                    .pointerStyle(.horizontalText)
+                    .sonomaPointerStyle()
                 Picker("", selection: $category) {
                     ForEach(catalog.categories) { item in
                         Text(item.title).tag(item)

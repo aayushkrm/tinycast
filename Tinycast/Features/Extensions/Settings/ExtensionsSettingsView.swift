@@ -381,7 +381,7 @@ private struct ExtensionDisclosure: View {
                 .accessibilityHidden(true)
         }
         // The whole row toggles: a `DisclosureGroup` would only respond to its chevron.
-        .contentShape(.rect)
+        .contentShape(Rectangle())
         .onTapGesture(perform: onToggle)
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel(
@@ -719,7 +719,7 @@ private struct ExtensionPreferenceRow: View {
             SecureField("", text: $text, prompt: schema.placeholder.map(Text.init))
                 .textFieldStyle(.roundedBorder)
                 .labelsHidden()
-                .pointerStyle(.horizontalText)
+                .sonomaPointerStyle()
                 .onChange(of: text) { _, value in save(value) }
         case .file, .directory, .appPicker:
             HStack(spacing: Theme.Spacing.sm) {
@@ -733,7 +733,7 @@ private struct ExtensionPreferenceRow: View {
             TextField("", text: $text, prompt: schema.placeholder.map(Text.init))
                 .textFieldStyle(.roundedBorder)
                 .labelsHidden()
-                .pointerStyle(.horizontalText)
+                .sonomaPointerStyle()
                 .onChange(of: text) { _, value in save(value) }
         }
     }
@@ -830,7 +830,7 @@ private struct ExtensionImportSheet: View {
                         }
                         .padding(.vertical, Theme.Spacing.xs)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(.rect)
+                        .contentShape(Rectangle())
                         .onTapGesture { binding(for: candidate).wrappedValue.toggle() }
                     }
                 }

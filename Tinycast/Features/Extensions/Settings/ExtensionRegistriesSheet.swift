@@ -161,7 +161,7 @@ struct ExtensionRegistriesSheet: View {
                 )
                 .textFieldStyle(.roundedBorder)
                 .labelsHidden()
-                .pointerStyle(.horizontalText)
+                .sonomaPointerStyle()
                 .frame(width: 220)
                 .onChange(of: customSearchPathsText) { _, value in
                     settings.extensionCustomSearchPaths = Self.parseSearchPaths(value)
@@ -243,14 +243,14 @@ struct RegistryEditorSheet: View {
                 Text("Repository").font(.callout.weight(.medium))
                 TextField("", text: $url, prompt: Text("owner/repo, or a link to the folder"))
                     .textFieldStyle(.roundedBorder)
-                    .pointerStyle(.horizontalText)
+                    .sonomaPointerStyle()
             }
 
             VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
                 Text("Name").font(.callout.weight(.medium))
                 TextField("", text: $name, prompt: Text(parsed?.name ?? "Optional"))
                     .textFieldStyle(.roundedBorder)
-                    .pointerStyle(.horizontalText)
+                    .sonomaPointerStyle()
             }
 
             if let parsed {
