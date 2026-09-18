@@ -1,0 +1,55 @@
+name: Sonoma Build
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: sonoma-compat
+
+      - name: Select Xcode 26
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n1)"
+          echo "Using $XCODE_PATH"
+          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
+
+      - name: Release build for macOS 14.0 (universal)
+        run: |
+          xcodebuild -project Tinycast.xcodeproj -scheme Tinycast \
+            -configuration Release -derivedDataPath "$RUNNER_TEMP/DD" \
+            MACOSX_DEPLOYMENT_TARGET=14.0 ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 20
+
+      - name: Verify floor and slices
+        run: |
+          APP="$RUNNER_TEMP/DD/Build/Products/Release/Tinycast.app"
+          BIN="$APP/Contents/MacOS/Tinycast"
+          echo "arch=$(lipo -archs "$BIN")"
+          echo "LSMinimumSystemVersion=$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$APP/Contents/Info.plist")"
+          for A in arm64 x86_64; do
+            echo "$A minos=$(xcrun vtool -arch "$A" -show-build-version "$BIN" | awk '/minos/{print $2}')"
+          done
+          echo "=== strong 15+/26+ symbols (must be empty) ==="
+          for A in arm64 x86_64; do
+            echo "--- $A ---"
+            xcrun nm -m -arch "$A" "$BIN" 2>/dev/null | grep -iE "glass|TranslationSession|LanguageAvailability|FoundationModels|SystemLanguageModel" | grep -v weak || echo "(none strong)"
+          done
+          echo "=== ad-hoc sign ==="
+          codesign --force --deep --sign - "$APP"
+          codesign -dv "$APP" 2>&1 | head -n 5
+
+      - name: Package zip
+        run: |
+          APP="$RUNNER_TEMP/DD/Build/Products/Release/Tinycast.app"
+          mkdir -p dist
+          ditto -c -k --keepParent --sequesterRsrc "$APP" "dist/Tinycast-Sonoma-0.10.23.zip"
+          ls -lh dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tinycast-Sonoma
+          path: dist/Tinycast-Sonoma-0.10.23.zip
