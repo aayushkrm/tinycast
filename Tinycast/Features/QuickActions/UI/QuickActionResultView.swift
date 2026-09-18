@@ -215,11 +215,7 @@ extension View {
         _ storage: Binding<Any?>, onDownloaded: @escaping () -> Void
     ) -> some View {
         if #available(macOS 15.0, *) {
-            translationTask(
-                Binding<TranslationSession.Configuration?>(
-                    get: { storage.wrappedValue as? TranslationSession.Configuration },
-                    set: { storage.wrappedValue = $0 })
-            ) { session in
+            translationTask(storage.wrappedValue as? TranslationSession.Configuration) { session in
                 try? await session.prepareTranslation()
                 await MainActor.run {
                     storage.wrappedValue = nil
