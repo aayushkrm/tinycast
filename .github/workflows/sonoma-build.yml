@@ -2,6 +2,13 @@ name: Sonoma Build
 
 on:
   workflow_dispatch: {}
+  push:
+    branches: [sonoma-compat]
+    paths:
+      - Tinycast/**
+      - Tinycast.xcodeproj/**
+      - project.yml
+      - .github/workflows/sonoma-build.yml
 
 jobs:
   build:
