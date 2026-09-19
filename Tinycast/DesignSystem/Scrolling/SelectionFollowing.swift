@@ -59,7 +59,11 @@ private struct SelectionFollowing: ViewModifier {
                     align()
                 }
                 .onPreferenceChange(SelectionFrameKey.self) { frame in
-                    selection = frame
+                    // Gated: while nobody follows, the frame only invalidates the list
+                    // per scroll frame; align() early-returns on !following either way.
+                    if following {
+                        selection = frame
+                    }
                     align()
                 }
                 .onChange(of: scroll) { _, scroll in
@@ -75,7 +79,9 @@ private struct SelectionFollowing: ViewModifier {
         } else {
             content
                 .onPreferenceChange(SelectionFrameKey.self) { frame in
-                    selection = frame
+                    if following {
+                        selection = frame
+                    }
                     align()
                 }
                 .onChange(of: scroll) { _, scroll in
