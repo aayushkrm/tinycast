@@ -37,4 +37,9 @@ jobs:
           echo "=== ERROR SUMMARY ==="
           grep -E "error:" /tmp/sonoma-check.log | sed 's|.*/Tinycast/|Tinycast/|' | sort -u | head -n 100 || echo "NO ERRORS - clean"
           echo "=== Total error lines ==="
-          grep -c -E "error:" /tmp/sonoma-check.log || echo 0
+          ERRORS=$(grep -c -E "error:" /tmp/sonoma-check.log || true)
+          echo "$ERRORS"
+          if [ "$ERRORS" -ne 0 ]; then
+            echo "::error::typecheck found $ERRORS error lines"
+            exit 1
+          fi
