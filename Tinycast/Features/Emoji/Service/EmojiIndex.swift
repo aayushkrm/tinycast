@@ -111,8 +111,8 @@ final class EmojiIndex {
         let normKeywords = normKeywordsWhole[order]
         var nameOnly = true
         if !terms.isEmpty {
-            for term in terms where !containsWordStart(term, in: normName) {
-                guard !term.contains(","), containsWordStart(term, in: normKeywords) else { return nil }
+            for term in terms where !Self.containsWordStart(term, in: normName) {
+                guard !term.contains(","), Self.containsWordStart(term, in: normKeywords) else { return nil }
                 nameOnly = false
             }
         }
@@ -125,11 +125,11 @@ final class EmojiIndex {
             let next = normName.dropFirst(nameMatch.queryLength).first,
             !next.isLetter && !next.isNumber
         {
-            best = leadingWordScore - nameMatch.candidateLength
+            best = Self.leadingWordScore - nameMatch.candidateLength
         }
         if !terms.isEmpty {
             let ordered = nameMatch?.tier == .subsequence ? nameMatch?.score ?? 0 : 0
-            best = max(best ?? Int.min, (nameOnly ? nameWordsScore : mixedWordsScore) + ordered)
+            best = max(best ?? Int.min, (nameOnly ? Self.nameWordsScore : Self.mixedWordsScore) + ordered)
         }
         guard !entry.keywords.isEmpty,
             FuzzyMatch.match(
@@ -141,7 +141,7 @@ final class EmojiIndex {
                 let match = FuzzyMatch.match(
                     query, normalizedCandidate: keyword, candidateLength: length)
             else { continue }
-            best = max(best ?? Int.min, min(match.score, leadingWordScore) - keywordPenalty)
+            best = max(best ?? Int.min, min(match.score, Self.leadingWordScore) - Self.keywordPenalty)
             if match.tier == .exact { break }
         }
         return best

@@ -27,11 +27,10 @@ jobs:
 
       - name: Regression harnesses (ranking + emoji behavior must not move)
         run: |
-          ./Scripts/run-tests.sh emoji-test 2>&1 | tail -n 5
-          ./Scripts/run-tests.sh emoji-search-test 2>&1 | tail -n 5
-          ./Scripts/run-tests.sh fuzz-test 2>&1 | tail -n 5
-          ./Scripts/run-tests.sh corpus-test 2>&1 | tail -n 5
-          ls /tmp/tinycast-harness/*.failed 2>/dev/null && echo "::error::harness failed" && exit 1 || echo "harnesses green"
+          ./Scripts/run-tests.sh emoji-test
+          ./Scripts/run-tests.sh emoji-search-test
+          ./Scripts/run-tests.sh fuzz-test
+          ./Scripts/run-tests.sh corpus-test
 
       - name: Build emoji benchmark (Intel, macOS 14 floor)
         run: |
