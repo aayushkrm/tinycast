@@ -65,10 +65,15 @@ jobs:
 
       - name: Upload dSYM (symbolicated profiling of future builds)
         run: |
-          DSYM=$(find "$RUNNER_TEMP/DD/Build/Products/Release" -maxdepth 1 -name "*.dSYM" -print -quit)
-          echo "dSYM=$DSYM"
-          [ -n "$DSYM" ] || { echo "::error::no dSYM produced"; exit 1; }
-          mkdir -p dist && cp -R "$DSYM" dist/
+          mkdir -p dist
+          found=0
+          while IFS= read -r DSYM; do
+            echo "dSYM=$DSYM"
+            cp -R "$DSYM" dist/
+            found=1
+          done < <(find "$RUNNER_TEMP/DD/Build/Products/Release" -maxdepth 2 -name "*.dSYM")
+          if [ "$found" -eq 0 ]; then echo "::error::no dSYM produced"; exit 1; fi
+          ls dist/
 
       - uses: actions/upload-artifact@v4
         with:

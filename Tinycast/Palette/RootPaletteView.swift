@@ -327,8 +327,10 @@ struct RootPaletteView: View {
                 if !vm.isVisible, menuOpen { closeMenus() }
             }
             .onChange(of: vm.query) {
-                vm.selection = 0
-                scroll = ScrollIntent(kind: .top)
+                // Guarded: Observation invalidates dependents on every write, changed or not.
+                if vm.selection != 0 { vm.selection = 0 }
+                let top = ScrollIntent(kind: .top)
+                if scroll != top { scroll = top }
                 if vm.mode == .fileSearch { fileSearch.search(vm.query, filter: vm.fileSearchFilter) }
                 if vm.mode == .menuSearch { menuSearch.filter(vm.query) }
                 if vm.mode == .switchWindows { windowSwitch.filter(vm.query) }

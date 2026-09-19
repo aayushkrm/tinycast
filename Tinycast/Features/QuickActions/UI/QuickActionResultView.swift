@@ -28,15 +28,16 @@ struct QuickActionResultView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 // Measured before the insets, so `isScrollable` cannot depend on its own answer.
                 .sonomaOnHeight {
-                    contentHeight = $0
+                    // Guarded: a same-value write still invalidates dependents.
+                    if contentHeight != $0 { contentHeight = $0 }
                 }
                 .padding(.top, inset(headerHeight))
                 .padding(.bottom, inset(footerHeight))
         }
         .sonomaScrollBounceBasedOnSize()
         .mask(scrollFade)
-        .overlay(alignment: .top) { measured(header) { headerHeight = $0 } }
-        .overlay(alignment: .bottom) { measured(footer) { footerHeight = $0 } }
+        .overlay(alignment: .top) { measured(header) { if headerHeight != $0 { headerHeight = $0 } } }
+        .overlay(alignment: .bottom) { measured(footer) { if footerHeight != $0 { footerHeight = $0 } } }
         .frame(width: metrics.size.quickActionPanel, height: panelHeight)
         .background(Theme.Colors.panelScrim)
         .background(VisualEffectView())

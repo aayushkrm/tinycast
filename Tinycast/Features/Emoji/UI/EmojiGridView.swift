@@ -166,7 +166,7 @@ private struct EmojiGridRowView: View {
         }
         .contentShape(Rectangle())
         .sonomaOnWidth {
-            width = $0
+            if width != $0 { width = $0 }
         }
         // Single tap selects; the double-tap paste rides along as a simultaneous gesture.
         .gesture(

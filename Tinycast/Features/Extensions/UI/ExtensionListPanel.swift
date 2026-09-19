@@ -157,7 +157,7 @@ private struct ExtensionListPanelModifier<List: View, Revision: Equatable>: View
             .background { ExtensionWindowProbe { host = $0 } }
             // Global, not the form's space: the panel is placed in screen coordinates.
             .sonomaOnGlobalFrame {
-                anchor = $0
+                if anchor != $0 { anchor = $0 }
             }
             .onChange(of: Key(open: open, height: height, anchor: anchor, revision: revision)) {
                 sync()
