@@ -69,6 +69,14 @@ enum FuzzyMatch {
                 tier: .prefix, offset: 0, queryLength: query.characters.count,
                 candidateLength: length, spread: 0)
         }
+        // Byte-identical for ASCII: boundaries coincide, so tier, offset and length match
+        // the grapheme search exactly, without its cluster striding.
+        if q.isASCII, c.isASCII, let offset = asciiSubstringOffset(haystack: c, needle: q) {
+            let index = c.index(c.startIndex, offsetBy: offset)
+            return Match(
+                tier: isWordStart(c, index) ? .wordStart : .substring, offset: offset,
+                queryLength: query.characters.count, candidateLength: length, spread: 0)
+        }
         if let range = c.range(of: q) {
             let offset = c.distance(from: c.startIndex, to: range.lowerBound)
             return Match(
@@ -79,6 +87,30 @@ enum FuzzyMatch {
         return Match(
             tier: .subsequence, offset: 0, queryLength: query.characters.count,
             candidateLength: length, spread: spread)
+    }
+
+    /// Leftmost byte offset of needle in haystack, both ASCII; nil when absent or empty.
+    /// Index arithmetic only, no allocation: the grapheme search this replaces strides clusters.
+    private static func asciiSubstringOffset(haystack: String, needle: String) -> Int? {
+        let hay = haystack.utf8
+        let ndl = needle.utf8
+        guard let first = ndl.first, ndl.count <= hay.count else { return nil }
+        var i = hay.startIndex
+        var offset = 0
+        while i != hay.endIndex {
+            if hay[i] == first {
+                var h = i
+                var n = ndl.startIndex
+                while n != ndl.endIndex, h != hay.endIndex, hay[h] == ndl[n] {
+                    h = hay.index(after: h)
+                    n = ndl.index(after: n)
+                }
+                if n == ndl.endIndex { return offset }
+            }
+            i = hay.index(after: i)
+            offset += 1
+        }
+        return nil
     }
 
     /// Score-only form, for callers that rank one field and don't band by match strength.
