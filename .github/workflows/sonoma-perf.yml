@@ -32,9 +32,22 @@ jobs:
           ./Scripts/run-tests.sh fuzz-test
           ./Scripts/run-tests.sh corpus-test
 
-      - name: Build emoji benchmark (Intel, macOS 14 floor)
+      - name: Fold differential (raw vs pre-folded rank must agree on every case)
         run: |
           SDK="$(xcrun --show-sdk-path --sdk macosx)"
+          L=Tinycast/Features/Launcher/Model
+          xcrun swiftc -O -swift-version 6 -strict-concurrency=complete \
+            -sdk "$SDK" \
+            $L/SearchRelevance.swift $L/ScriptRomanization.swift \
+            $L/EntryNaming.swift $L/LauncherOrder.swift \
+            Tests/sonoma-fold-differential.swift \
+            -o /tmp/fold-differential
+          /tmp/fold-differential 2>&1 | tail -n 8
+
+      - name: Build Intel probes (macOS 14 floor)
+        run: |
+          SDK="$(xcrun --show-sdk-path --sdk macosx)"
+          L=Tinycast/Features/Launcher/Model
           xcrun swiftc -O -swift-version 6 -strict-concurrency=complete \
             -target x86_64-apple-macos14.0 -sdk "$SDK" \
             Tinycast/Features/Emoji/Model/EmojiCatalog.swift \
@@ -46,7 +59,13 @@ jobs:
             Tinycast/Platform/Memo.swift \
             Tests/emoji-search-performance.swift \
             -o /tmp/emoji-perf-x86_64
-          mkdir -p dist && cp /tmp/emoji-perf-x86_64 dist/
+          xcrun swiftc -O -swift-version 6 -strict-concurrency=complete \
+            -target x86_64-apple-macos14.0 -sdk "$SDK" \
+            $L/SearchRelevance.swift $L/ScriptRomanization.swift \
+            $L/EntryNaming.swift $L/LauncherOrder.swift \
+            Tests/sonoma-fold-differential.swift \
+            -o /tmp/fold-differential-x86_64
+          mkdir -p dist && cp /tmp/emoji-perf-x86_64 /tmp/fold-differential-x86_64 dist/
           ls -lh dist/
 
       - name: Reference run (M-silicon, timings not comparable to Intel)
@@ -67,5 +86,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: emoji-perf-x86_64
-          path: dist/emoji-perf-x86_64
+          name: sonoma-perf-x86_64
+          path: dist/

@@ -20,6 +20,26 @@ enum LauncherOrder {
             .map(\.0)
     }
 
+    /// The pre-folded twin of `ranked`: same loop, same comparator, folded fields in. Kept as
+    /// its own function rather than a generic so both call shapes stay concrete; the
+    /// differential probe ranks every corpus case through both and demands identical order.
+    static func rankedFolded<Item>(
+        _ items: [Item], query: FuzzyMatch.Query, limit: Int,
+        folded: (Item) -> FoldedFields, usage: (Item) -> Int, name: (Item) -> String
+    ) -> [Item] {
+        let scored = items.enumerated().compactMap { position, item -> (Item, Int, Int)? in
+            guard let quality = SearchRelevance.quality(query, folded: folded(item)) else {
+                return nil
+            }
+            return (item, quality + usage(item), position)
+        }
+        return
+            scored
+            .sorted { precedes($0, $1, name: name) }
+            .prefix(limit)
+            .map(\.0)
+    }
+
     /// Score, then the user's own alphabet, then publication order — a total order either way.
     private static func precedes<Item>(
         _ lhs: (Item, Int, Int), _ rhs: (Item, Int, Int), name: (Item) -> String

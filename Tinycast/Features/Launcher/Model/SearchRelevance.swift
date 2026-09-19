@@ -276,6 +276,33 @@ struct SearchFields: Sendable, Hashable, ExpressibleByArrayLiteral {
     mutating func append(_ alias: SearchAlias) { aliases.append(alias) }
 }
 
+/// A `SearchAlias` folded once, so an index sweeping many entries folds each one once per
+/// corpus change rather than once per keystroke. Same input, same fold: the pre-folded rank
+/// order is identical to folding per call, which the differential probe pins down.
+struct FoldedAlias: Sendable, Hashable {
+    let text: String
+    let length: Int
+    let role: SearchAlias.Role
+    let looseness: SearchAlias.Looseness
+
+    init(_ alias: SearchAlias) {
+        let folded = FuzzyMatch.normalized(alias.text)
+        text = folded
+        length = folded.count
+        role = alias.role
+        looseness = alias.looseness
+    }
+}
+
+/// The folded mirror of `SearchFields`; ranking reads it through the same cells and shape.
+struct FoldedFields: Sendable, Hashable {
+    var aliases: [FoldedAlias]
+
+    init(_ fields: SearchFields) {
+        aliases = fields.aliases.map(FoldedAlias.init)
+    }
+}
+
 /// How well a query fits an entry: every gap below is a pick count, and one gap is a firewall.
 enum SearchRelevance {
     /// The lowest protected cell. Nothing below it is reachable at any usage.
@@ -343,6 +370,24 @@ enum SearchRelevance {
                 alias.looseness.accepts(match.tier)
             else { continue }
             // A user alias earns its own cell only from its start; inside, it is a translation.
+            let role: SearchAlias.Role =
+                alias.role == .userAlias && !match.tier.isAnchored ? .translation : alias.role
+            guard let cell = cell(role, match.tier) else { continue }
+            best = max(best ?? Int.min, cell + shape(match))
+        }
+        return best
+    }
+
+    /// The twice-folded form: caller and index each folded once, so neither folds per entry.
+    static func quality(_ query: FuzzyMatch.Query, folded: FoldedFields) -> Int? {
+        guard !query.isEmpty else { return 0 }
+        var best: Int?
+        for alias in folded.aliases {
+            guard
+                let match = FuzzyMatch.match(
+                    query, normalizedCandidate: alias.text, candidateLength: alias.length),
+                alias.looseness.accepts(match.tier)
+            else { continue }
             let role: SearchAlias.Role =
                 alias.role == .userAlias && !match.tier.isAnchored ? .translation : alias.role
             guard let cell = cell(role, match.tier) else { continue }

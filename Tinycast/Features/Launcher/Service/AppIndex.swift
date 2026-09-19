@@ -288,6 +288,10 @@ final class AppIndex {
     @ObservationIgnored private var resultsMemo = Memo<ResultsKey, [AppEntry]>()
     /// Bumped whenever `apps` changes, so both memos above name the entry set they were built from.
     private var entriesRevision = 0
+    /// Folded alias rows parallel to `apps`: rebuilt on scan or alias edits, reused per keystroke.
+    @ObservationIgnored private var foldedRowsCache: (
+        entriesRevision: Int, aliasRevision: Int, rows: [(entry: AppEntry, folded: FoldedFields)]
+    )?
 
     private static let systemActionEntries: [AppEntry] = SystemActionCatalog.all
         .map { command in
@@ -596,15 +600,33 @@ final class AppIndex {
     private func rank(_ q: String, limit: Int) -> [AppEntry] {
         Signposts.interval("AppIndex.rank") {
             let learned = ranking.usage(query: q)
-            return LauncherOrder.ranked(
-                apps, query: FuzzyMatch.Query(q), limit: limit,
-                fields: { app in
-                    guard let alias = self.aliases.alias(for: app.preferenceKey) else {
-                        return SearchFields(app.aliases)
-                    }
-                    return SearchFields(app.aliases + [.userAlias(alias)])
-                },
-                usage: { learned[$0.preferenceKey] ?? 0 }, name: \.name)
+            let rows = foldedRows()
+            return
+                LauncherOrder.rankedFolded(
+                    rows, query: FuzzyMatch.Query(q), limit: limit,
+                    folded: { $0.folded },
+                    usage: { learned[$0.entry.preferenceKey] ?? 0 },
+                    name: { $0.entry.name }
+                ).map(\.entry)
         }
+    }
+
+    /// Alias rows folded once per corpus change: scans and alias edits bump a revision, while
+    /// keystrokes only read. Merges the user's alias exactly like the `fields` closure it replaces.
+    private func foldedRows() -> [(entry: AppEntry, folded: FoldedFields)] {
+        if let cache = foldedRowsCache, cache.entriesRevision == entriesRevision,
+            cache.aliasRevision == aliases.revision
+        {
+            return cache.rows
+        }
+        let rows = apps.map { app -> (entry: AppEntry, folded: FoldedFields) in
+            guard let alias = aliases.alias(for: app.preferenceKey) else {
+                return (app, FoldedFields(SearchFields(app.aliases)))
+            }
+            return (app, FoldedFields(SearchFields(app.aliases + [.userAlias(alias)])))
+        }
+        foldedRowsCache = (
+            entriesRevision: entriesRevision, aliasRevision: aliases.revision, rows: rows)
+        return rows
     }
 }
