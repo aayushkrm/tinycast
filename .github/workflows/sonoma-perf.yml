@@ -9,6 +9,7 @@ on:
       - Tinycast/Platform/AppPaths.swift
       - Tinycast/Platform/Memo.swift
       - Tests/emoji-search-performance.swift
+      - Tests/sonoma-fold-differential.swift
       - .github/workflows/sonoma-perf.yml
 
 jobs:
