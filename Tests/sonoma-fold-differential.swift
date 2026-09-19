@@ -70,7 +70,11 @@ struct FoldDifferential {
             ).map { $0.0.key }
             if old != new {
                 mismatches += 1
-                let at = zip(old, new).firstIndex { $0 != $1 } ?? -1
+                var at = -1
+                for (i, pair) in zip(old, new).enumerated() where pair.0 != pair.1 {
+                    at = i
+                    break
+                }
                 print("MISMATCH '\(test.query)' first divergence at \(at)")
             }
         }
