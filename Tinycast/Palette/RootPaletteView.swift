@@ -327,10 +327,10 @@ struct RootPaletteView: View {
                 if !vm.isVisible, menuOpen { closeMenus() }
             }
             .onChange(of: vm.query) {
-                // Guarded: Observation invalidates dependents on every write, changed or not.
+                // Selection guarded (same-value writes still invalidate); scroll always
+                // re-issues: the nonce distinguishes intents so the new list still jumps.
                 if vm.selection != 0 { vm.selection = 0 }
-                let top = ScrollIntent(kind: .top)
-                if scroll != top { scroll = top }
+                scroll = ScrollIntent(kind: .top)
                 if vm.mode == .fileSearch { fileSearch.search(vm.query, filter: vm.fileSearchFilter) }
                 if vm.mode == .menuSearch { menuSearch.filter(vm.query) }
                 if vm.mode == .switchWindows { windowSwitch.filter(vm.query) }
