@@ -52,8 +52,21 @@ struct LauncherScreen: PaletteScreen {
         self.openArgumentOptions = openArgumentOptions
         self.scrollToFollow = scrollToFollow
 
-        var results = appIndex.orderedResults(
-            query: vm.query, visibility: visibility, favorites: favorites)
+        var results: [AppEntry] {
+            let q = vm.query
+            if q.trimmingCharacters(in: .whitespaces).isEmpty {
+                return appIndex.orderedResults(
+                    query: q, visibility: visibility, favorites: favorites)
+            }
+            if appIndex.hasFreshRank(query: q) {
+                return appIndex.assembleResults(
+                    appIndex.publishedResults, query: q, visibility: visibility,
+                    favorites: favorites)
+            }
+            // First flight hasn't landed: resolve synchronously once rather than flash.
+            return appIndex.orderedResults(
+                query: q, visibility: visibility, favorites: favorites)
+        }()
         // A typed web address leads: nothing the index holds answers it better.
         if let browser = CommandCatalog.openInBrowser(for: vm.query), visibility.isVisible(browser) {
             results.insert(browser, at: 0)
@@ -393,6 +406,10 @@ struct LauncherScreen: PaletteScreen {
             },
             fallbacks: fallbackSection
         )
+        // Rank resolves off the main thread; the id restarts it per query and revision.
+        .task(id: appIndex.rankRequestKey(query: vm.query)) {
+            await appIndex.requestRanked(query: vm.query)
+        }
     }
 
     /// Nil when nothing is typed, which is the one state the section has no input for.

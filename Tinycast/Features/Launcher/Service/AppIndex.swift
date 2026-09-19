@@ -290,8 +290,14 @@ final class AppIndex {
     private var entriesRevision = 0
     /// Folded alias rows parallel to `apps`: rebuilt on scan or alias edits, reused per keystroke.
     @ObservationIgnored private var foldedRowsCache: (
-        entriesRevision: Int, aliasRevision: Int, rows: [(entry: AppEntry, folded: FoldedFields)]
+        entriesRevision: Int, aliasRevision: Int, rows: [FoldedRow]
     )?
+
+    /// One entry plus its pre-folded aliases: the unit the async rank resolves off-main.
+    private struct FoldedRow: Sendable {
+        let entry: AppEntry
+        let folded: FoldedFields
+    }
 
     private static let systemActionEntries: [AppEntry] = SystemActionCatalog.all
         .map { command in
@@ -590,10 +596,82 @@ final class AppIndex {
             favoritesRevision: favorites.revision)
         return resultsMemo.value(for: key) {
             // Filtering stays downstream of `matches` so that memo is never keyed on hidden state.
-            let base = matches(q).filter(visibility.isVisible)
-            guard q.isEmpty, !favorites.keys.isEmpty else { return base }
-            let split = favorites.ordered(base)
-            return split.favorites + split.rest
+            assembleResults(matches(q), query: q, visibility: visibility, favorites: favorites)
+        }
+    }
+
+    /// Visibility filtering plus favorites pinning, shared by the sync and async rank paths so
+    /// both compose identical lists from identical rank output.
+    func assembleResults(
+        _ ranked: [AppEntry], query: String, visibility: VisibilityStore,
+        favorites: FavoritesStore
+    ) -> [AppEntry] {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        let base = ranked.filter(visibility.isVisible)
+        guard q.isEmpty, !favorites.keys.isEmpty else { return base }
+        let split = favorites.ordered(base)
+        return split.favorites + split.rest
+    }
+
+    /// Rank output published per applied query. The view keeps showing the previous set while a
+    /// new rank resolves, so the search field echoes without waiting for the ranking pass.
+    private(set) var publishedResults: [AppEntry] = []
+
+    /// What triggers a re-rank: the query plus every revision the rank output depends on.
+    /// Visibility and favorites stay out: they filter downstream, synchronously, at read time.
+    struct RankRequestKey: Hashable, Sendable {
+        let query: String
+        let entriesRevision: Int
+        let rankingRevision: Int
+        let aliasRevision: Int
+    }
+
+    func rankRequestKey(query: String) -> RankRequestKey {
+        RankRequestKey(
+            query: query.trimmingCharacters(in: .whitespaces),
+            entriesRevision: entriesRevision, rankingRevision: ranking.revision,
+            aliasRevision: aliases.revision)
+    }
+
+    @ObservationIgnored private var rankTask: Task<Void, Never>?
+    @ObservationIgnored private var completedRankKey: RankRequestKey?
+
+    /// Whether the published rank already answers this query: fresh output renders without
+    /// waiting, anything else resolves synchronously once (first flight) or async (re-rank).
+    func hasFreshRank(query: String) -> Bool {
+        rankRequestKey(query: query) == completedRankKey
+    }
+
+    /// Resolves the rank off the main thread; empty and category queries stay synchronous —
+    /// neither does ranking work. Superseded requests cancel; stale completions are discarded.
+    func requestRanked(query: String, limit: Int = 200) {
+        let key = rankRequestKey(query: query)
+        // Already published for these exact inputs: an in-flight twin, if any, lands the same.
+        guard key != completedRankKey else { return }
+        rankTask?.cancel()
+        if key.query.isEmpty {
+            completedRankKey = key
+            publishedResults = apps
+            return
+        }
+        if let kind = AppEntry.Kind.named(by: key.query) {
+            completedRankKey = key
+            publishedResults = categoryListing(kind, query: key.query)
+            return
+        }
+        let rows = foldedRows()
+        let learned = ranking.usage(query: key.query)
+        rankTask = Task {
+            let ranked = await Task.detached(priority: .userInitiated) {
+                LauncherOrder.rankedFolded(
+                    rows, query: FuzzyMatch.Query(key.query), limit: limit,
+                    folded: { $0.folded }, usage: { learned[$0.entry.preferenceKey] ?? 0 },
+                    name: { $0.entry.name })
+            }.value
+            guard !Task.isCancelled else { return }
+            guard key == self.rankRequestKey(query: query) else { return }
+            self.completedRankKey = key
+            self.publishedResults = ranked.map(\.entry)
         }
     }
 
@@ -613,17 +691,18 @@ final class AppIndex {
 
     /// Alias rows folded once per corpus change: scans and alias edits bump a revision, while
     /// keystrokes only read. Merges the user's alias exactly like the `fields` closure it replaces.
-    private func foldedRows() -> [(entry: AppEntry, folded: FoldedFields)] {
+    private func foldedRows() -> [FoldedRow] {
         if let cache = foldedRowsCache, cache.entriesRevision == entriesRevision,
             cache.aliasRevision == aliases.revision
         {
             return cache.rows
         }
-        let rows = apps.map { app -> (entry: AppEntry, folded: FoldedFields) in
+        let rows = apps.map { app -> FoldedRow in
             guard let alias = aliases.alias(for: app.preferenceKey) else {
-                return (app, FoldedFields(SearchFields(app.aliases)))
+                return FoldedRow(entry: app, folded: FoldedFields(SearchFields(app.aliases)))
             }
-            return (app, FoldedFields(SearchFields(app.aliases + [.userAlias(alias)])))
+            return FoldedRow(
+                entry: app, folded: FoldedFields(SearchFields(app.aliases + [.userAlias(alias)])))
         }
         foldedRowsCache = (
             entriesRevision: entriesRevision, aliasRevision: aliases.revision, rows: rows)
