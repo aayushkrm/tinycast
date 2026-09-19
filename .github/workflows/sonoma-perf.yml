@@ -1,0 +1,64 @@
+name: Sonoma Perf
+
+on:
+  push:
+    branches: [sonoma-compat]
+    paths:
+      - Tinycast/Features/Emoji/**
+      - Tinycast/Features/Launcher/Model/**
+      - Tinycast/Platform/AppPaths.swift
+      - Tinycast/Platform/Memo.swift
+      - Tests/emoji-search-performance.swift
+      - .github/workflows/sonoma-perf.yml
+
+jobs:
+  emoji-bench:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: sonoma-compat
+
+      - name: Select Xcode 26
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n1)"
+          echo "Using $XCODE_PATH"
+          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
+
+      - name: Build emoji benchmark (Intel, macOS 14 floor)
+        run: |
+          SDK="$(xcrun --show-sdk-path --sdk macosx)"
+          xcrun swiftc -O -swift-version 6 -strict-concurrency=complete \
+            -target x86_64-apple-macos14.0 -sdk "$SDK" \
+            Tinycast/Features/Emoji/Model/EmojiCatalog.swift \
+            Tinycast/Features/Emoji/Model/EmojiData.generated.swift \
+            Tinycast/Features/Emoji/Service/EmojiIndex.swift \
+            Tinycast/Features/Emoji/Service/FrequentEmojiStore.swift \
+            Tinycast/Features/Launcher/Model/SearchRelevance.swift \
+            Tinycast/Platform/AppPaths.swift \
+            Tinycast/Platform/Memo.swift \
+            Tests/emoji-search-performance.swift \
+            -o /tmp/emoji-perf-x86_64
+          mkdir -p dist && cp /tmp/emoji-perf-x86_64 dist/
+          ls -lh dist/
+
+      - name: Reference run (M-silicon, timings not comparable to Intel)
+        run: |
+          SDK="$(xcrun --show-sdk-path --sdk macosx)"
+          xcrun swiftc -O -swift-version 6 -strict-concurrency=complete \
+            -sdk "$SDK" \
+            Tinycast/Features/Emoji/Model/EmojiCatalog.swift \
+            Tinycast/Features/Emoji/Model/EmojiData.generated.swift \
+            Tinycast/Features/Emoji/Service/EmojiIndex.swift \
+            Tinycast/Features/Emoji/Service/FrequentEmojiStore.swift \
+            Tinycast/Features/Launcher/Model/SearchRelevance.swift \
+            Tinycast/Platform/AppPaths.swift \
+            Tinycast/Platform/Memo.swift \
+            Tests/emoji-search-performance.swift \
+            -o /tmp/emoji-perf-arm64
+          /tmp/emoji-perf-arm64 2>&1 | tail -n 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: emoji-perf-x86_64
+          path: dist/emoji-perf-x86_64
