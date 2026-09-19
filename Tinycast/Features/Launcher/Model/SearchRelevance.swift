@@ -46,9 +46,14 @@ enum FuzzyMatch {
     }
 
     static func match(_ query: Query, candidate: String) -> Match? {
-        let q = query.text
         let c = normalized(candidate)
-        let length = c.count
+        return match(query, normalizedCandidate: c, candidateLength: c.count)
+    }
+
+    /// Pre-folded form: an index sweeping many candidates folds each one once, not once per query.
+    static func match(_ query: Query, normalizedCandidate c: String, candidateLength: Int) -> Match? {
+        let q = query.text
+        let length = candidateLength
         guard !q.isEmpty else {
             return Match(
                 tier: .exact, offset: 0, queryLength: 0, candidateLength: length, spread: 0)

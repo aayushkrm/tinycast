@@ -24,6 +24,11 @@ final class EmojiIndex {
 
     private var byGlyph: [String: EmojiEntry] = [:]
     @ObservationIgnored private var searchMemo = Memo<SearchKey, [EmojiEntry]>()
+    /// Folded once at load, so a keystroke never re-folds ~2.1k names and keyword lists.
+    @ObservationIgnored private var normNames: [String] = []
+    @ObservationIgnored private var normNameLengths: [Int] = []
+    @ObservationIgnored private var normKeywordsWhole: [String] = []
+    @ObservationIgnored private var normKeywordLists: [[(keyword: String, length: Int)]] = []
     /// Bumped on each load, so the key above names the catalog it scored.
     private var revision = 0
 
@@ -38,6 +43,15 @@ final class EmojiIndex {
             grouped[category].map { (category, $0) }
         }
         byGlyph = Dictionary(parsed.map { ($0.glyph, $0) }, uniquingKeysWith: { first, _ in first })
+        normNames = parsed.map { FuzzyMatch.normalized($0.name) }
+        normNameLengths = normNames.map(\.count)
+        normKeywordsWhole = parsed.map { FuzzyMatch.normalized($0.keywords) }
+        normKeywordLists = parsed.map { entry in
+            entry.keywords.split(separator: ",").map { raw in
+                let folded = FuzzyMatch.normalized(String(raw))
+                return (keyword: folded, length: folded.count)
+            }
+        }
         revision &+= 1
     }
 
@@ -64,8 +78,12 @@ final class EmojiIndex {
                     ($0.element, Self.frecencyLimit - $0.offset)
                 }, uniquingKeysWith: max)
             var scored: [ScoredEntry] = []
+            scored.reserveCapacity(entries.count)
             for (order, entry) in entries.enumerated() {
-                guard let textScore = Self.textScore(query, terms: terms, entry: entry) else { continue }
+                guard
+                    let textScore = textScore(
+                        query, terms: terms, entry: entry, order: order)
+                else { continue }
                 let score = textScore + (frecency[entry.glyph] ?? 0)
                 scored.append(ScoredEntry(entry: entry, score: score, order: order))
             }
@@ -86,24 +104,25 @@ final class EmojiIndex {
     private static let nameWordsScore = 60_000
     private static let mixedWordsScore = 50_000
 
-    private static func textScore(
-        _ query: FuzzyMatch.Query, terms: [String], entry: EmojiEntry
+    private func textScore(
+        _ query: FuzzyMatch.Query, terms: [String], entry: EmojiEntry, order: Int
     ) -> Int? {
+        let normName = normNames[order]
+        let normKeywords = normKeywordsWhole[order]
         var nameOnly = true
         if !terms.isEmpty {
-            let name = FuzzyMatch.normalized(entry.name)
-            let keywords = FuzzyMatch.normalized(entry.keywords)
-            for term in terms where !containsWordStart(term, in: name) {
-                guard !term.contains(","), containsWordStart(term, in: keywords) else { return nil }
+            for term in terms where !containsWordStart(term, in: normName) {
+                guard !term.contains(","), containsWordStart(term, in: normKeywords) else { return nil }
                 nameOnly = false
             }
         }
 
-        let nameMatch = FuzzyMatch.match(query, candidate: entry.name)
+        let nameMatch = FuzzyMatch.match(
+            query, normalizedCandidate: normName, candidateLength: normNameLengths[order])
         if nameMatch?.tier == .exact { return nameMatch?.score }
         var best = nameMatch?.score
         if let nameMatch, nameMatch.tier == .prefix,
-            let next = FuzzyMatch.normalized(entry.name).dropFirst(nameMatch.queryLength).first,
+            let next = normName.dropFirst(nameMatch.queryLength).first,
             !next.isLetter && !next.isNumber
         {
             best = leadingWordScore - nameMatch.candidateLength
@@ -112,10 +131,16 @@ final class EmojiIndex {
             let ordered = nameMatch?.tier == .subsequence ? nameMatch?.score ?? 0 : 0
             best = max(best ?? Int.min, (nameOnly ? nameWordsScore : mixedWordsScore) + ordered)
         }
-        guard !entry.keywords.isEmpty, FuzzyMatch.score(query, candidate: entry.keywords) != nil
+        guard !entry.keywords.isEmpty,
+            FuzzyMatch.match(
+                query, normalizedCandidate: normKeywords,
+                candidateLength: normKeywords.count) != nil
         else { return best }
-        for keyword in entry.keywords.split(separator: ",") {
-            guard let match = FuzzyMatch.match(query, candidate: String(keyword)) else { continue }
+        for (keyword, length) in normKeywordLists[order] {
+            guard
+                let match = FuzzyMatch.match(
+                    query, normalizedCandidate: keyword, candidateLength: length)
+            else { continue }
             best = max(best ?? Int.min, min(match.score, leadingWordScore) - keywordPenalty)
             if match.tier == .exact { break }
         }
