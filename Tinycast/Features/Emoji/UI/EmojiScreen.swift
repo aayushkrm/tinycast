@@ -10,7 +10,16 @@ struct EmojiScreen: PaletteScreen {
     let openActions: () -> Void
 
     private var sections: [EmojiGridSection] {
-        EmojiGrid.sections(query: vm.query, index: index, frequent: frequent)
+        let q = vm.query
+        if q.trimmingCharacters(in: .whitespaces).isEmpty {
+            return EmojiGrid.sections(query: q, index: index, frequent: frequent)
+        }
+        if index.hasFreshSearch(query: q, frequent: frequent) {
+            return EmojiGrid.sections(
+                query: q, index: index, frequent: frequent, results: index.publishedSearch)
+        }
+        // First flight hasn't landed: resolve synchronously once rather than flash.
+        return EmojiGrid.sections(query: q, index: index, frequent: frequent)
     }
 
     /// Flat grid order across sections — what the selection indexes.
@@ -67,24 +76,30 @@ struct EmojiScreen: PaletteScreen {
 
     @ViewBuilder
     private func content(selection: Int, scroll: ScrollIntent) -> some View {
-        let sections = sections
-        if !index.isLoaded {
-            EmptyResults(text: "Loading emoji…")
-        } else if sections.isEmpty {
-            EmptyResults(text: "No emoji found")
-        } else {
-            EmojiGridView(
-                sections: sections,
-                selection: selection,
-                tone: tone,
-                scroll: scroll,
-                onSelect: { vm.selection = $0 },
-                onActivate: { activate(at: vm.selection) },
-                onActions: { flat in
-                    vm.selection = flat
-                    openActions()
-                }
-            )
+        Group {
+            let sections = sections
+            if !index.isLoaded {
+                EmptyResults(text: "Loading emoji…")
+            } else if sections.isEmpty {
+                EmptyResults(text: "No emoji found")
+            } else {
+                EmojiGridView(
+                    sections: sections,
+                    selection: selection,
+                    tone: tone,
+                    scroll: scroll,
+                    onSelect: { vm.selection = $0 },
+                    onActivate: { activate(at: vm.selection) },
+                    onActions: { flat in
+                        vm.selection = flat
+                        openActions()
+                    }
+                )
+            }
+        }
+        // Search resolves off the main thread; the id restarts it per query and revision.
+        .task(id: index.searchRequestKey(query: vm.query, frequent: frequent)) {
+            await index.requestSearch(query: vm.query, frequent: frequent)
         }
     }
 }

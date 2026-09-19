@@ -13,9 +13,11 @@ enum EmojiGrid {
     static let columns = 8
 
     /// Ranked results while searching, otherwise Frequently Used plus every category.
+    /// Pass pre-resolved results to render without re-scoring; nil resolves synchronously.
     @MainActor
     static func sections(
-        query: String, index: EmojiIndex, frequent: FrequentEmojiStore
+        query: String, index: EmojiIndex, frequent: FrequentEmojiStore,
+        results: [EmojiEntry]? = nil
     ) -> [EmojiGridSection] {
         var sections: [EmojiGridSection] = []
         var start = 0
@@ -30,7 +32,7 @@ enum EmojiGrid {
                 append(section.category.title, section.entries)
             }
         } else {
-            append("Results", index.search(query, frequent: frequent))
+            append("Results", results ?? index.search(query, frequent: frequent))
         }
         return sections
     }
