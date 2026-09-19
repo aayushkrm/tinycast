@@ -52,7 +52,7 @@ struct LauncherScreen: PaletteScreen {
         self.openArgumentOptions = openArgumentOptions
         self.scrollToFollow = scrollToFollow
 
-        var results: [AppEntry] {
+        var results: [AppEntry] = {
             let q = vm.query
             if q.trimmingCharacters(in: .whitespaces).isEmpty {
                 return appIndex.orderedResults(
