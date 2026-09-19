@@ -36,6 +36,9 @@ are pure.
 - **Colon-wrapped queries are unwrapped**, so `:+1:` reuses CLDR's `+1` annotation with no alias table.
 - **Usage breaks ties, never tiers.** The top 100 glyphs from `FrequentEmojiStore.top` add a 100…1
   bonus, and the store's identity and revision are in the search memo key.
+- **Search resolves off the main thread.** The grid keeps showing the previous results while a new
+  query scores, so the search field echoes without waiting for the pass. A generation guard
+  discards superseded queries, and empty queries show frequents plus categories synchronously.
 
 ## Rendering
 

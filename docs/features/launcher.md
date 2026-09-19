@@ -411,6 +411,11 @@ Rankings are memoized one query deep and keyed by the ranking store's revision, 
 invalidates the cached order. `rank` resolves the whole learned table for a query up front via
 `usage(query:)` — one fold and one clock read per pass, not per candidate.
 
+The rank itself resolves off the main thread: the view keeps showing the previous results while a
+new query scores, so the search field echoes without waiting for the pass. A generation guard
+discards superseded queries, and empty queries resolve synchronously, so clearing the field is
+instant and nothing ever flashes empty.
+
 The frecency curve is bounded but never flat:
 
 ```
