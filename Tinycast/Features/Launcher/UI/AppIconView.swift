@@ -35,6 +35,11 @@ struct AppIconView: View {
         }
         .task(id: request) {
             guard warm == nil else { return }
+            // Let rapid list churn settle: consecutive keystrokes cancel superseded decodes
+            // before they start, so only resting rows pay for rasterization. Warm icons above
+            // resolve synchronously, so reopen never flashes.
+            try? await Task.sleep(for: .milliseconds(80))
+            guard !Task.isCancelled else { return }
             let image = await IconCache.loadAsync(app.iconSource, fileURL: app.url, size: size)
             guard !Task.isCancelled else { return }
             loaded = Loaded(request: request, image: image)
