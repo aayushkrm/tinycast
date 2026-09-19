@@ -69,19 +69,22 @@ enum FuzzyMatch {
                 tier: .prefix, offset: 0, queryLength: query.characters.count,
                 candidateLength: length, spread: 0)
         }
-        // Byte-identical for ASCII: boundaries coincide, so tier, offset and length match
-        // the grapheme search exactly, without its cluster striding.
-        if q.isASCII, c.isASCII, let offset = asciiSubstringOffset(haystack: c, needle: q) {
-            let index = c.index(c.startIndex, offsetBy: offset)
+        // Byte-identical for an ASCII needle: its bytes match 1:1, and any window the
+        // byte scan reports is pure ASCII, so tier, offset and length equal the grapheme
+        // search exactly, without its cluster striding. A miss here means the literal
+        // search would miss too, so control falls to the subsequence pass, not `range`.
+        if let (index, offset) = asciiLiteralMatch(haystack: c, needle: q) {
             return Match(
                 tier: isWordStart(c, index) ? .wordStart : .substring, offset: offset,
                 queryLength: query.characters.count, candidateLength: length, spread: 0)
-        }
-        if let range = c.range(of: q) {
-            let offset = c.distance(from: c.startIndex, to: range.lowerBound)
-            return Match(
-                tier: isWordStart(c, range.lowerBound) ? .wordStart : .substring, offset: offset,
-                queryLength: query.characters.count, candidateLength: length, spread: 0)
+        } else if !q.utf8.allSatisfy({ $0 < 0x80 }) {
+            if let range = c.range(of: q) {
+                let offset = c.distance(from: c.startIndex, to: range.lowerBound)
+                return Match(
+                    tier: isWordStart(c, range.lowerBound) ? .wordStart : .substring,
+                    offset: offset,
+                    queryLength: query.characters.count, candidateLength: length, spread: 0)
+            }
         }
         guard let spread = subsequenceScore(query.characters, c) else { return nil }
         return Match(
@@ -89,26 +92,36 @@ enum FuzzyMatch {
             candidateLength: length, spread: spread)
     }
 
-    /// Leftmost byte offset of needle in haystack, both ASCII; nil when absent or empty.
-    /// Index arithmetic only, no allocation: the grapheme search this replaces strides clusters.
-    private static func asciiSubstringOffset(haystack: String, needle: String) -> Int? {
+    /// Leftmost literal hit of an ASCII needle as a string index plus its character offset.
+    /// Non-ASCII haystack bytes can never join a match (every needle byte is ASCII), so a
+    /// reported window is boundary-clean by construction; nil covers absent and non-ASCII.
+    private static func asciiLiteralMatch(haystack: String, needle: String) -> (
+        index: String.Index, offset: Int
+    )? {
         let hay = haystack.utf8
         let ndl = needle.utf8
-        guard let first = ndl.first, ndl.count <= hay.count else { return nil }
+        guard let first = ndl.first, first < 0x80, ndl.dropFirst().allSatisfy({ $0 < 0x80 })
+        else { return nil }
         var i = hay.startIndex
-        var offset = 0
         while i != hay.endIndex {
-            if hay[i] == first {
+            let byte = hay[i]
+            if byte >= 0x80 {
+                i = hay.index(after: i)
+                continue
+            }
+            if byte == first {
                 var h = i
                 var n = ndl.startIndex
                 while n != ndl.endIndex, h != hay.endIndex, hay[h] == ndl[n] {
                     h = hay.index(after: h)
                     n = ndl.index(after: n)
                 }
-                if n == ndl.endIndex { return offset }
+                if n == ndl.endIndex, let si = i.samePosition(in: haystack) {
+                    return (
+                        si, haystack.distance(from: haystack.startIndex, to: si))
+                }
             }
             i = hay.index(after: i)
-            offset += 1
         }
         return nil
     }
