@@ -26,10 +26,12 @@ jobs:
 
       - name: Release build for macOS 14.0 (universal)
         run: |
+          set -o pipefail
           xcodebuild -project Tinycast.xcodeproj -scheme Tinycast \
             -configuration Release -derivedDataPath "$RUNNER_TEMP/DD" \
             MACOSX_DEPLOYMENT_TARGET=14.0 ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -n 20
+            CODE_SIGNING_ALLOWED=NO MARKETING_VERSION=0.10.23 \
+            CURRENT_PROJECT_VERSION=100 build 2>&1 | tail -n 20
 
       - name: Verify floor and slices
         run: |
@@ -60,3 +62,15 @@ jobs:
         with:
           name: Tinycast-Sonoma
           path: dist/Tinycast-Sonoma-0.10.23.zip
+
+      - name: Upload dSYM (symbolicated profiling of future builds)
+        run: |
+          DSYM=$(find "$RUNNER_TEMP/DD/Build/Products/Release" -maxdepth 1 -name "*.dSYM" -print -quit)
+          echo "dSYM=$DSYM"
+          [ -n "$DSYM" ] || { echo "::error::no dSYM produced"; exit 1; }
+          mkdir -p dist && cp -R "$DSYM" dist/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Tinycast-Sonoma-dSYM
+          path: dist/*.dSYM
